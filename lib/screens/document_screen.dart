@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_docs_clone/colors.dart';
@@ -8,6 +11,7 @@ import 'package:google_docs_clone/models/error_model.dart';
 import 'package:google_docs_clone/repository/auth_repository.dart';
 import 'package:google_docs_clone/repository/document_repository.dart';
 import 'package:google_docs_clone/repository/socket_repository.dart';
+import 'package:routemaster/routemaster.dart';
 
 class ScreenDocument extends ConsumerStatefulWidget {
   final String id;
@@ -37,6 +41,12 @@ class _ScreenDocumentState extends ConsumerState<ScreenDocument> {
         _controller?.selection ?? const TextSelection.collapsed(offset: 0),
         quill.ChangeSource.REMOTE,
       );
+    });
+    Timer.periodic(const Duration(seconds: 2), (timer) {
+      socketRepository.autoSave(<String, dynamic>{
+        'delta': _controller!.document.toDelta(),
+        'room': widget.id,
+      });
     });
   }
 
@@ -96,7 +106,17 @@ class _ScreenDocumentState extends ConsumerState<ScreenDocument> {
           Padding(
             padding: const EdgeInsets.all(10.0),
             child: ElevatedButton.icon(
-              onPressed: () {},
+              onPressed: () {
+                Clipboard.setData(
+                        ClipboardData(text: 'http://localhost:3000/#/document/${widget.id}'))
+                    .then((value) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Link Copied!'),
+                    ),
+                  );
+                });
+              },
               icon: const Icon(
                 Icons.lock,
                 size: 16,
@@ -112,9 +132,14 @@ class _ScreenDocumentState extends ConsumerState<ScreenDocument> {
           padding: const EdgeInsets.symmetric(vertical: 8.0),
           child: Row(
             children: [
-              Image.asset(
-                'assets/images/docs-logo.png',
-                height: 40,
+              GestureDetector(
+                onTap: () {
+                  Routemaster.of(context).replace('/');
+                },
+                child: Image.asset(
+                  'assets/images/docs-logo.png',
+                  height: 40,
+                ),
               ),
               const SizedBox(width: 10),
               SizedBox(
