@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_docs_clone/colors.dart';
+import 'package:google_docs_clone/common/widgets/loader.dart';
 import 'package:google_docs_clone/models/document_model.dart';
 import 'package:google_docs_clone/models/error_model.dart';
 import 'package:google_docs_clone/repository/auth_repository.dart';
@@ -21,7 +22,7 @@ class ScreenDocument extends ConsumerStatefulWidget {
 
 class _ScreenDocumentState extends ConsumerState<ScreenDocument> {
   TextEditingController titleController = TextEditingController(text: 'Untitled Document');
-  final quill.QuillController _controller = quill.QuillController.basic();
+  quill.QuillController? _controller;
   ErrorModel? errorModel;
   SocketRepository socketRepository = SocketRepository();
 
@@ -30,6 +31,13 @@ class _ScreenDocumentState extends ConsumerState<ScreenDocument> {
     super.initState();
     socketRepository.joinRoom(widget.id);
     fetchDocumentData();
+    socketRepository.changeListener((data) {
+      _controller?.compose(
+        quill.Delta.fromJson(data['delta']),
+        _controller?.selection ?? const TextSelection.collapsed(offset: 0),
+        quill.ChangeSource.REMOTE,
+      );
+    });
   }
 
   void fetchDocumentData() async {
@@ -38,8 +46,27 @@ class _ScreenDocumentState extends ConsumerState<ScreenDocument> {
         .getDocumentById(ref.read(userProvider)!.token, widget.id);
     if (errorModel!.data != null) {
       titleController.text = (errorModel!.data as DocumentModel).title;
+
+      _controller = quill.QuillController(
+        document: errorModel!.data.content.isEmpty
+            ? quill.Document()
+            : quill.Document.fromDelta(
+                quill.Delta.fromJson(errorModel!.data.content),
+              ),
+        selection: const TextSelection.collapsed(offset: 0),
+      );
+
       setState(() {});
     }
+    _controller!.document.changes.listen((event) {
+      if (event.item3 == quill.ChangeSource.LOCAL) {
+        Map<String, dynamic> map = {
+          'delta': event.item2,
+          'room': widget.id,
+        };
+        socketRepository.typing(map);
+      }
+    });
   }
 
   @override
@@ -58,6 +85,9 @@ class _ScreenDocumentState extends ConsumerState<ScreenDocument> {
 
   @override
   Widget build(BuildContext context) {
+    if (_controller == null) {
+      return const Scaffold(body: Loader());
+    }
     return Scaffold(
       appBar: AppBar(
         backgroundColor: kWhiteColor,
@@ -122,7 +152,7 @@ class _ScreenDocumentState extends ConsumerState<ScreenDocument> {
         child: Column(
           children: [
             const SizedBox(height: 10),
-            quill.QuillToolbar.basic(controller: _controller),
+            quill.QuillToolbar.basic(controller: _controller!),
             const SizedBox(height: 10),
             Expanded(
               child: SizedBox(
@@ -133,7 +163,7 @@ class _ScreenDocumentState extends ConsumerState<ScreenDocument> {
                   child: Padding(
                     padding: const EdgeInsets.all(30.0),
                     child: quill.QuillEditor.basic(
-                      controller: _controller,
+                      controller: _controller!,
                       readOnly: false,
                     ),
                   ),
