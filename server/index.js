@@ -4,7 +4,8 @@ const cors = require("cors")
 const http = require('http')
 const authRouter = require("./routes/auth")
 const documentRouter = require("./routes/document")
-const Document = require("./models/document");
+const Document = require("./models/document")
+const DB = require('./middlewares/mongo')
 
 const PORT = process.env.PORT | 3001
 
@@ -17,7 +18,7 @@ app.use(express.json())
 app.use(authRouter)
 app.use(documentRouter)
 
-const DB = "mongodb+srv://jayakrishnan:YjLxXgc3Lmp5PwvW@cluster0.nnchejq.mongodb.net/?retryWrites=true&w=majority"
+
 
 mongoose.connect(DB).then(() => {
     console.log('Connection successful!');
