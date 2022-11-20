@@ -1,1 +1,1 @@
-const host = 'http://<youripaddress>:3001';
+const host = 'https://jk-google-docs-clone.netlify.app/';
